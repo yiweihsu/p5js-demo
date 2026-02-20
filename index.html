@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>P5.js Interactive Demo</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0a0a0f;
+            color: white;
+            overflow-x: hidden;
+            touch-action: manipulation;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .info {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px 25px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 1000;
+            text-align: center;
+            max-width: 90%;
+        }
+
+        .info h1 {
+            font-size: clamp(1.2rem, 4vw, 1.8rem);
+            margin-bottom: 5px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .info p {
+            font-size: clamp(0.8rem, 2.5vw, 1rem);
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            z-index: 1000;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            background: rgba(102, 126, 234, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: white;
+            font-size: clamp(0.9rem, 2.5vw, 1rem);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            font-weight: 500;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+            background: rgba(118, 75, 162, 0.9);
+        }
+
+        @media (hover: hover) {
+            .btn:hover {
+                background: rgba(118, 75, 162, 0.9);
+                transform: translateY(-2px);
+                box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+            }
+        }
+
+        canvas {
+            display: block;
+            box-shadow: 0 0 50px rgba(102, 126, 234, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+
+    <div class="info">
+        <h1>P5.js 互動動畫</h1>
+        <p>點擊/觸碰螢幕產生粒子效果 ✨</p>
+    </div>
+
+    <div class="controls">
+        <button class="btn" onclick="changeMode()">切換模式</button>
+        <button class="btn" onclick="clearParticles()">清除</button>
+    </div>
+
+    <script>
+        let particles = [];
+        let mode = 0; // 0: Fireworks, 1: Wave, 2: Spiral
+        const modes = ['煙火', '波浪', '螺旋'];
+        let hueOffset = 0;
+
+        function setup() {
+            let canvas = createCanvas(windowWidth, windowHeight);
+            canvas.parent('canvas-container');
+            colorMode(HSB, 360, 100, 100, 100);
+            background(10, 15, 5);
+        }
+
+        function draw() {
+            background(10, 15, 5, 10);
+
+            hueOffset += 0.5;
+
+            // Update and display particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                particles[i].display();
+
+                if (particles[i].isDead()) {
+                    particles.splice(i, 1);
+                }
+            }
+
+            // Display particle count
+            fill(255, 80);
+            noStroke();
+            textSize(12);
+            textAlign(LEFT);
+            text(`粒子數量: ${particles.length}`, 10, height - 10);
+            text(`模式: ${modes[mode]}`, 10, height - 30);
+        }
+
+        function mousePressed() {
+            createParticles(mouseX, mouseY);
+        }
+
+        function touchStarted() {
+            for (let touch of touches) {
+                createParticles(touch.x, touch.y);
+            }
+            return false;
+        }
+
+        function mouseDragged() {
+            createParticles(mouseX, mouseY);
+        }
+
+        function touchMoved() {
+            for (let touch of touches) {
+                createParticles(touch.x, touch.y);
+            }
+            return false;
+        }
+
+        function createParticles(x, y) {
+            const particleCount = mode === 0 ? 30 : 15;
+
+            for (let i = 0; i < particleCount; i++) {
+                particles.push(new Particle(x, y, mode));
+            }
+        }
+
+        function changeMode() {
+            mode = (mode + 1) % 3;
+        }
+
+        function clearParticles() {
+            particles = [];
+            background(10, 15, 5);
+        }
+
+        function windowResized() {
+            resizeCanvas(windowWidth, windowHeight);
+            background(10, 15, 5);
+        }
+
+        class Particle {
+            constructor(x, y, mode) {
+                this.pos = createVector(x, y);
+                this.lifespan = 100;
+                this.mode = mode;
+                this.hue = (hueOffset + random(60)) % 360;
+
+                if (mode === 0) {
+                    // Fireworks
+                    let angle = random(TWO_PI);
+                    let speed = random(2, 8);
+                    this.vel = createVector(cos(angle) * speed, sin(angle) * speed);
+                    this.acc = createVector(0, 0.2);
+                    this.size = random(3, 8);
+                } else if (mode === 1) {
+                    // Wave
+                    let angle = random(TWO_PI);
+                    let speed = random(1, 4);
+                    this.vel = createVector(cos(angle) * speed, sin(angle) * speed);
+                    this.acc = createVector(0, 0);
+                    this.size = random(5, 12);
+                    this.angle = random(TWO_PI);
+                } else {
+                    // Spiral
+                    this.angle = random(TWO_PI);
+                    this.radius = 0;
+                    this.radiusSpeed = random(1, 3);
+                    this.angleSpeed = random(0.05, 0.15);
+                    this.size = random(4, 10);
+                    this.vel = createVector(0, 0);
+                    this.acc = createVector(0, 0);
+                }
+            }
+
+            update() {
+                if (this.mode === 0) {
+                    // Fireworks
+                    this.vel.add(this.acc);
+                    this.pos.add(this.vel);
+                } else if (this.mode === 1) {
+                    // Wave
+                    this.angle += 0.1;
+                    this.vel.y += sin(this.angle) * 0.5;
+                    this.pos.add(this.vel);
+                } else {
+                    // Spiral
+                    this.radius += this.radiusSpeed;
+                    this.angle += this.angleSpeed;
+                    this.pos.x += cos(this.angle) * this.radiusSpeed;
+                    this.pos.y += sin(this.angle) * this.radiusSpeed;
+                }
+
+                this.lifespan -= 1;
+            }
+
+            display() {
+                let alpha = map(this.lifespan, 0, 100, 0, 100);
+
+                noStroke();
+                fill(this.hue, 80, 100, alpha);
+                ellipse(this.pos.x, this.pos.y, this.size);
+
+                // Glow effect
+                fill(this.hue, 60, 100, alpha * 0.3);
+                ellipse(this.pos.x, this.pos.y, this.size * 2);
+            }
+
+            isDead() {
+                return this.lifespan <= 0;
+            }
+        }
+
+        // Prevent default touch behaviors
+        document.addEventListener('touchmove', function(e) {
+            e.preventDefault();
+        }, { passive: false });
+    </script>
+</body>
+</html>
